@@ -62,7 +62,7 @@ class _AdminDashboardState extends State<AdminDashboard>
         _unreadCount = results[4] as int;
         _adminAlerts = (results[5] as List)
             .cast<AppNotification>()
-            .where((n) => n.type == 'admin_alert')
+            .where((n) => n.type == 'admin_alert' || n.type == 'admin_expiry')
             .toList();
       });
     } catch (_) {}
@@ -533,17 +533,19 @@ Future<void> _warnUser(AppUser user) async {
       itemBuilder: (_, i) {
         final n = alerts[i];
         final isUnread = !n.isRead;
+        final isExpiry = n.type == 'admin_expiry';
+        final accentColor = isExpiry ? AppTheme.warning : AppTheme.priceRed;
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: isUnread
-                ? AppTheme.priceRed.withOpacity(0.04)
+                ? accentColor.withOpacity(0.04)
                 : AppTheme.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isUnread
-                  ? AppTheme.priceRed.withOpacity(0.15)
+                  ? accentColor.withOpacity(isExpiry ? 0.25 : 0.15)
                   : AppTheme.divider,
             ),
           ),
@@ -555,15 +557,17 @@ Future<void> _warnUser(AppUser user) async {
                 height: 44,
                 decoration: BoxDecoration(
                   color: isUnread
-                      ? AppTheme.priceRed.withOpacity(0.12)
+                      ? accentColor.withOpacity(0.12)
                       : AppTheme.textGrey.withOpacity(0.08),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  isUnread
-                      ? Icons.warning_amber_rounded
-                      : Icons.check_circle_outline,
-                  color: isUnread ? AppTheme.priceRed : AppTheme.textGrey,
+                  isExpiry
+                      ? Icons.timer_off_rounded
+                      : isUnread
+                          ? Icons.warning_amber_rounded
+                          : Icons.check_circle_outline,
+                  color: isUnread ? accentColor : AppTheme.textGrey,
                   size: 22,
                 ),
               ),
@@ -572,14 +576,40 @@ Future<void> _warnUser(AppUser user) async {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      n.title,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight:
-                            isUnread ? FontWeight.w700 : FontWeight.w600,
-                        color: AppTheme.textDark,
-                      ),
+                    Row(
+                      children: [
+                        if (isExpiry)
+                          Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.warning.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'EXPIRATION',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.warning,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        Expanded(
+                          child: Text(
+                            n.title,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: isUnread
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
+                              color: AppTheme.textDark,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(

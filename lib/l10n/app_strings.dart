@@ -227,6 +227,28 @@ class S {
   String get noNotifications => _t('Aucune notification', 'لا توجد إشعارات');
   String get notifSub      => _t('Vous serez notifié ici', 'ستتلقى إشعاراتك هنا');
 
+  // ── Subscription Expiry ──────────────────────────────────────────────────
+  String get subscriptionExpired => _t('Abonnement expiré ❌', 'انتهت صلاحية الاشتراك ❌');
+  String get subscriptionExpiredDesc => _t(
+    'Votre abonnement a expiré. Renouvelez-le pour continuer à publier des annonces.',
+    'انتهت صلاحية اشتراكك. جدّده لمواصلة نشر الإعلانات.',
+  );
+  String get renewSubscription => _t('Renouveler l\'abonnement', 'تجديد الاشتراك');
+  String get expiredBannerTitle => _t('Abonnement expiré', 'الاشتراك منتهي');
+  String get expiredBannerDesc => _t(
+    'Votre abonnement a expiré. Vous ne pouvez plus publier de nouvelles annonces.',
+    'انتهت صلاحية اشتراكك. لا يمكنك نشر إعلانات جديدة.',
+  );
+  String get adminExpiryAlertTitle => _t('Abonnement expiré ⏰', 'انتهاء الاشتراك ⏰');
+  String get adminExpiryAlertBody => _t(
+    'L\'abonnement de {name} a expiré. Ce vendeur doit renouveler pour être réactivé.',
+    'انتهت صلاحية اشتراك {name}. يجب على هذا البائع التجديد لإعادة التنشيط.',
+  );
+  String get renewalPrompt => _t(
+    'Votre abonnement a expiré. Si vous souhaitez continuer à publier, veuillez faire une nouvelle demande d\'abonnement.',
+    'انتهت صلاحية اشتراكك. إذا كنت ترغب في مواصلة النشر، يرجى تقديم طلب اشتراك جديد.',
+  );
+
   // ── Connectivity ──────────────────────────────────────────────────────────
   String get noConnection  => _t('Pas de connexion', 'لا يوجد اتصال');
   String get checkWifi     => _t('Vérifiez votre connexion Wi-Fi ou données mobiles et réessayez.', 'تحقق من اتصال Wi-Fi أو بيانات الجوال وأعد المحاولة.');

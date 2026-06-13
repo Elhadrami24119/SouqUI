@@ -648,6 +648,19 @@ class SupabaseService {
     final idx = _mockSubRequests.indexWhere((s) => s.id == requestId);
     if (idx != -1) {
       _mockSubRequests[idx] = _mockSubRequests[idx].copyWith(status: SubscriptionRequestStatus.approved);
+      final userId = _mockSubRequests[idx].userId;
+      for (final entry in _userStore.entries) {
+        if (entry.value.user.id == userId) {
+          _userStore[entry.key] = _StoredUser(
+            user: entry.value.user.copyWith(
+              subscription: SubscriptionType.monthly,
+              subscriptionExpiry: DateTime.now().add(const Duration(days: 30)),
+            ),
+            password: entry.value.password,
+          );
+          break;
+        }
+      }
     }
   }
 
@@ -657,6 +670,66 @@ class SupabaseService {
     if (idx != -1) {
       _mockSubRequests[idx] = _mockSubRequests[idx].copyWith(status: SubscriptionRequestStatus.rejected);
     }
+  }
+
+  // ── Subscription Expiry Check ──────────────────────────────────────────────
+
+  Future<List<String>> checkSubscriptionExpiry() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final expiredUserIds = <String>[];
+
+    for (final entry in _userStore.entries) {
+      final user = entry.value.user;
+      if (user.subscription == SubscriptionType.monthly &&
+          user.subscriptionExpiry != null &&
+          user.subscriptionExpiry!.isBefore(now)) {
+        expiredUserIds.add(user.id);
+
+        final alreadyNotified = _mockNotifications.any((n) =>
+            n.userId == 'hdr119' &&
+            n.type == 'admin_expiry' &&
+            n.body.contains(user.name) &&
+            n.createdAt.isAfter(todayStart));
+
+        if (!alreadyNotified) {
+          _mockNotifications.insert(0, AppNotification(
+            id: 'exp-${now.millisecondsSinceEpoch}-admin',
+            userId: 'hdr119',
+            title: 'Abonnement expiré ⏰',
+            body: 'L\'abonnement de ${user.name} a expiré. Ce vendeur doit renouveler pour être réactivé.',
+            type: 'admin_expiry',
+            createdAt: now,
+          ));
+
+          _mockNotifications.insert(0, AppNotification(
+            id: 'exp-${now.millisecondsSinceEpoch}-seller-${user.id}',
+            userId: user.id,
+            title: 'Abonnement expiré ❌',
+            body: 'Votre abonnement a expiré. Si vous souhaitez continuer à publier, veuillez faire une nouvelle demande d\'abonnement.',
+            type: 'subscription_expired',
+            createdAt: now,
+          ));
+        }
+
+        _userStore[entry.key] = _StoredUser(
+          user: user.copyWith(subscription: SubscriptionType.none),
+          password: entry.value.password,
+        );
+      }
+    }
+
+    if (expiredUserIds.contains(_currentUser?.id)) {
+      for (final entry in _userStore.entries) {
+        if (entry.value.user.id == _currentUser?.id) {
+          _currentUser = entry.value.user;
+          break;
+        }
+      }
+    }
+
+    return expiredUserIds;
   }
 
   // ── Storage ──────────────────────────────────────────────────────────────────
@@ -726,6 +799,8 @@ class DataService {
   Future<void> approveSubscription(String id) => _s.approveSubscription(id);
 
   Future<void> rejectSubscription(String id) => _s.rejectSubscription(id);
+
+  Future<List<String>> checkSubscriptionExpiry() => _s.checkSubscriptionExpiry();
 
   Future<String> uploadFile({
     required dynamic file, required String bucket, required String path,

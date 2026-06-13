@@ -53,6 +53,7 @@ class _SellerDashboardState extends State<SellerDashboard>
       final results = await Future.wait([
         _data.getMyProducts(),
         _data.hasPendingSubscription(user.id),
+        _data.checkSubscriptionExpiry(),
       ]);
       final products = (results[0] as List).cast<Product>();
       if (mounted) {
@@ -77,6 +78,20 @@ class _SellerDashboardState extends State<SellerDashboard>
       _products.where((p) => p.status == ProductStatus.sold).toList();
 
   Future<void> _openAddProduct() async {
+    final user = AuthService.currentUser;
+    if (user != null && !user.isSubscribed) {
+      final expired = user.subscriptionExpiry != null &&
+          user.subscriptionExpiry!.isBefore(DateTime.now());
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(expired
+            ? 'Votre abonnement a expiré. Renouvelez-le pour publier des annonces.'
+            : 'Abonnement requis. Faites une demande d\'abonnement pour publier des annonces.'),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ));
+      return;
+    }
     final added = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => const AddProductScreen()),
@@ -409,6 +424,71 @@ class _SellerDashboardState extends State<SellerDashboard>
                 fontSize: 13),
           )),
         ]),
+      );
+    }
+
+    if (user.subscriptionExpiry != null &&
+        user.subscriptionExpiry!.isBefore(DateTime.now())) {
+      return GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SubscriptionScreen()),
+        ).then((_) => _loadData()),
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF4A0000), Color(0xFF8B0000)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.priceRed.withOpacity(0.3),
+                blurRadius: 12, offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(children: [
+            Container(
+              width: 44, height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: const Icon(Icons.error_outline_rounded,
+                  color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(S.current.expiredBannerTitle,
+                    style: GoogleFonts.inter(
+                        color: Colors.white, fontWeight: FontWeight.w700,
+                        fontSize: 14)),
+                const SizedBox(height: 2),
+                Text(S.current.expiredBannerDesc,
+                    style: GoogleFonts.inter(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 11, height: 1.3)),
+              ],
+            )),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(S.current.renewSubscription,
+                  style: GoogleFonts.inter(
+                      color: Colors.white, fontWeight: FontWeight.w700,
+                      fontSize: 12)),
+            ),
+          ]),
+        ),
       );
     }
 
@@ -952,11 +1032,16 @@ class _AddProductScreenState extends State<AddProductScreen> {
       _showSnack('Veuillez ajouter une photo principale.');
       return;
     }
-    setState(() => _step = 1);
+    final user = AuthService.currentUser;
+    if (user != null && user.isSubscribed) {
+      _submit(requireProof: false);
+    } else {
+      setState(() => _step = 1);
+    }
   }
 
-  Future<void> _submit() async {
-    if (_paymentProof == null) {
+  Future<void> _submit({bool requireProof = true}) async {
+    if (requireProof && _paymentProof == null) {
       _showSnack('Veuillez joindre la preuve de paiement.');
       return;
     }
@@ -967,7 +1052,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         mainImage: _mainImage!,
         image2: _image2,
         image3: _image3,
-        paymentProof: _paymentProof!,
+        paymentProof: requireProof ? _paymentProof! : null,
         data: {
           'name': _nameCtrl.text.trim(),
           'price': _priceCtrl.text.trim(),
@@ -1427,7 +1512,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: _isSubmitting ? null : _submit,
+            onPressed: _isSubmitting ? null : () => _submit(),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primary,
               foregroundColor: Colors.white,
